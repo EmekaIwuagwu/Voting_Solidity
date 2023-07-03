@@ -1,1 +1,1 @@
-"# Voting_Solidity" 
+Voting a Prefered Candidate
