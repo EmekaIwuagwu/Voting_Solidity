@@ -1,84 +1,99 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract Voting {
-    // Represents a single candidate
+contract VotingContract {
     struct Candidate {
         string name;
         uint256 voteCount;
     }
-
-    // Represents a single voter
+    
     struct Voter {
         string fullName;
         string email;
         bool hasVoted;
     }
-
-    address public owner;
-    bool public votingOpen;
-    uint256 public totalVotes;
-
+    
+    address public admin;
     mapping(address => Voter) public voters;
     Candidate[] public candidates;
-
-    // Modifier to restrict access to the contract owner
-    modifier onlyOwner() {
-        require(msg.sender == owner, "You are not the contract owner");
+    
+    event Vote(address indexed voter, uint256 candidateIndex);
+    
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only the contract admin can perform this operation");
         _;
     }
-
-    // Modifier to check if voting is open
-    modifier isVotingOpen() {
-        require(votingOpen, "Voting is closed");
-        _;
+    
+    constructor(string[] memory candidateNames) {
+        admin = msg.sender;
+        
+        for (uint256 i = 0; i < candidateNames.length; i++) {
+            candidates.push(Candidate({
+                name: candidateNames[i],
+                voteCount: 0
+            }));
+        }
     }
-
-    constructor() {
-        owner = msg.sender;
-        votingOpen = true;
+    
+    function registerVoter(string memory fullName, string memory email) external {
+        require(bytes(fullName).length > 0, "Full name must not be empty");
+        require(bytes(email).length > 0, "Email must not be empty");
+        require(!voters[msg.sender].hasVoted, "The voter has already cast their vote");
+        
+        voters[msg.sender] = Voter({
+            fullName: fullName,
+            email: email,
+            hasVoted: false
+        });
     }
-
-    // Add a candidate to the election
-    function addCandidate(string memory _name) public onlyOwner {
-        candidates.push(Candidate(_name, 0));
+    
+    function vote(uint256 candidateIndex) external {
+        require(candidateIndex < candidates.length, "Invalid candidate index");
+        require(!voters[msg.sender].hasVoted, "The voter has already cast their vote");
+        
+        voters[msg.sender].hasVoted = true;
+        candidates[candidateIndex].voteCount++;
+        
+        emit Vote(msg.sender, candidateIndex);
     }
-
-    // Start the voting process
-    function startVoting() public onlyOwner {
-        votingOpen = true;
-    }
-
-    // Close the voting process
-    function closeVoting() public onlyOwner {
-        votingOpen = false;
-    }
-
-    // Vote for a candidate
-    function vote(uint256 _candidateIndex, string memory _fullName, string memory _email) public isVotingOpen {
-        require(_candidateIndex < candidates.length, "Invalid candidate index");
-        require(!voters[msg.sender].hasVoted, "You have already voted");
-
-        voters[msg.sender] = Voter(_fullName, _email, true);
-        candidates[_candidateIndex].voteCount++;
-        totalVotes++;
-    }
-
-    // Get the total number of candidates
-    function getCandidateCount() public view returns (uint256) {
+    
+    function getCandidateCount() external view returns (uint256) {
         return candidates.length;
     }
-
-    // Get the details of a candidate by index
-    function getCandidate(uint256 _candidateIndex) public view returns (string memory name, uint256 voteCount) {
-        require(_candidateIndex < candidates.length, "Invalid candidate index");
-        Candidate memory candidate = candidates[_candidateIndex];
+    
+    function getCandidate(uint256 candidateIndex) external view returns (string memory, uint256) {
+        require(candidateIndex < candidates.length, "Invalid candidate index");
+        
+        Candidate storage candidate = candidates[candidateIndex];
         return (candidate.name, candidate.voteCount);
     }
-
-    // Get the details of a voter by address
-    function getVoter(address _voterAddress) public view returns (string memory fullName, string memory email, bool hasVoted) {
-        Voter memory voter = voters[_voterAddress];
+    
+    function getVoter(address voterAddress) external view returns (string memory, string memory, bool) {
+        Voter storage voter = voters[voterAddress];
         return (voter.fullName, voter.email, voter.hasVoted);
+    }
+    
+    function isAdmin() external view returns (bool) {
+        return msg.sender == admin;
+    }
+    
+    function addCandidate(string memory candidateName) external onlyAdmin {
+        require(bytes(candidateName).length > 0, "Candidate name must not be empty");
+        
+        candidates.push(Candidate({
+            name: candidateName,
+            voteCount: 0
+        }));
+    }
+    
+    function removeCandidate(uint256 candidateIndex) external onlyAdmin {
+        require(candidateIndex < candidates.length, "Invalid candidate index");
+        
+        // Reorder array to maintain consistency
+        for (uint256 i = candidateIndex; i < candidates.length - 1; i++) {
+            candidates[i] = candidates[i + 1];
+        }
+        
+        candidates.pop();
     }
 }
