@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract VotingContract {
+contract Voting {
     struct Candidate {
         string name;
         uint256 voteCount;
